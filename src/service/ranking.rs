@@ -51,18 +51,18 @@ impl Ranking {
 
             if found_match_option.is_some() {
                 let found_match = found_match_option.unwrap();
-                let match_start_date_time = found_match.cetDate.parse::<DateTime<FixedOffset>>().unwrap();
-                let now_date_time = Utc::now().with_timezone(&FixedOffset::west_opt(-7200).unwrap());
+                let match_start_date_time = found_match.utcDate.parse::<DateTime<FixedOffset>>().unwrap();
+                let now_date_time = Utc::now().with_timezone(&FixedOffset::west_opt(0).unwrap());
 
                 if match_start_date_time.timestamp() < now_date_time.timestamp() {
                     let home_score = found_match.score.fullTime.home;
                     let away_score = found_match.score.fullTime.away;
 
                     let mut match_score: isize = 0;
-                    if home_score == tip.score1 && away_score == tip.score2 {
+                    if home_score.unwrap() == tip.score1 && away_score.unwrap() == tip.score2 {
                         // exactly right
                         match_score = 3;
-                    } else if (home_score - tip.score1) == (away_score - tip.score2) {
+                    } else if (home_score.unwrap() - tip.score1) == (away_score.unwrap() - tip.score2) {
                         // correct difference
                         match_score = 2;
                     } else if (home_score > away_score && tip.score1 > tip.score2) || (home_score < away_score && tip.score1 < tip.score2) {

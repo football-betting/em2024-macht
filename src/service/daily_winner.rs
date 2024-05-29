@@ -55,7 +55,7 @@ impl DailyWinnerService {
 
             let mut is_new_daily = true;
 
-            let mut daily = &mut Daily {
+            let daily = &mut Daily {
                 date: date.to_string(),
                 dailyPoints: vec![],
             };

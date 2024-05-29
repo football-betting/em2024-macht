@@ -1,5 +1,6 @@
 use std::env;
 use dotenv::dotenv;
+use reqwest::header::{AUTHORIZATION, ORIGIN};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -12,33 +13,29 @@ pub struct ApiResult {
 pub struct Match {
     pub id: isize,
     pub utcDate: String,
-    #[serde(default = "default")]
-    pub cetDate: String,
     pub homeTeam: Team,
     pub awayTeam: Team,
     pub score: Score,
     pub status: String,
-}
-
-fn default() -> String {
-    "".to_string()
+    pub homeScore: Option<isize>,
+    pub awayScore: Option<isize>,
 }
 
 #[allow(non_snake_case)]
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Team {
-    pub id: isize,
-    pub name: String,
-    pub shortName: String,
-    pub tla: String,
+    pub id: Option<isize>,
+    pub name: Option<String>,
+    pub shortName: Option<String>,
+    pub tla: Option<String>,
     #[serde(rename = "crest")]
-    pub flag: String,
+    pub flag: Option<String>,
 }
 
 #[allow(non_snake_case)]
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Score {
-    pub winner: String,
+    pub winner: Option<String>,
     pub duration: String,
     pub fullTime: ScoreDetail,
     pub halfTime: ScoreDetail,
@@ -46,8 +43,8 @@ pub struct Score {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ScoreDetail {
-    pub home: isize,
-    pub away: isize,
+    pub home: Option<isize>,
+    pub away: Option<isize>,
 }
 
 pub struct MatchClient {}
@@ -77,5 +74,26 @@ impl MatchClient {
             .json::<ApiResult>()
             .await
             .unwrap()
+    }
+
+    pub async fn save_matches_to_sqlite(matches: &mut Vec<Match>) {
+        for single_match in matches {
+            let resp = reqwest::Client::new()
+                .post("http://localhost:4321/api/match/import")
+                .header(ORIGIN, "RUST_APPLICATION")
+                // .header(AUTHORIZATION, ApiData::get_api_token())
+                .json(single_match)
+                .send()
+                .await
+                .unwrap();
+
+            let response_text = resp.text().await.unwrap();
+
+            if response_text.contains("Error") {
+                // Err(response_text)
+            } else {
+                // Ok(response_text)
+            }
+        }
     }
 }
