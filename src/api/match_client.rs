@@ -1,11 +1,12 @@
 use std::env;
 use dotenv::dotenv;
-use reqwest::header::{AUTHORIZATION, ORIGIN};
+use rusqlite::Connection;
 use serde_derive::{Deserialize, Serialize};
+use serde_json::to_string;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ApiResult {
-    pub matches: Vec<Match>,
+    pub matches: Option<Vec<Match>>,
 }
 
 #[allow(non_snake_case)]
@@ -19,6 +20,12 @@ pub struct Match {
     pub status: String,
     pub homeScore: Option<isize>,
     pub awayScore: Option<isize>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FoundMatch {
+    pub id: isize,
 }
 
 #[allow(non_snake_case)]
@@ -50,17 +57,22 @@ pub struct ScoreDetail {
 pub struct MatchClient {}
 
 impl MatchClient {
-    pub async fn get_matches() -> ApiResult {
+    pub async fn get_matches(date: Option<String>) -> ApiResult {
         dotenv().ok();
 
-        let uri = match env::var("API_URI") {
+        let mut uri = match env::var("API_URI") {
             Ok(v) => v.to_string(),
-            Err(_) => format!("Error loading env variable API_URI"),
+            Err(_) => "Error loading env variable API_URI".to_string(),
+        };
+
+        uri = match date {
+            Some(d) => uri + "?dateFrom=" + d.as_str() + "&dateTo=" + d.as_str(),
+            None => uri,
         };
 
         let token = match env::var("X_AUTH_TOKEN") {
             Ok(v) => v.to_string(),
-            Err(_) => format!("Error loading env variable X_AUTH_TOKEN"),
+            Err(_) => "Error loading env variable X_AUTH_TOKEN".to_string(),
         };
 
         let client = reqwest::Client::new();
@@ -77,23 +89,52 @@ impl MatchClient {
     }
 
     pub async fn save_matches_to_sqlite(matches: &mut Vec<Match>) {
+        let db = Self::get_connection().await;
+
         for single_match in matches {
-            let resp = reqwest::Client::new()
-                .post("http://localhost:4321/api/match/import")
-                .header(ORIGIN, "RUST_APPLICATION")
-                // .header(AUTHORIZATION, ApiData::get_api_token())
-                .json(single_match)
-                .send()
-                .await
-                .unwrap();
+            let mut stmt = db.prepare("SELECT * FROM match WHERE id = ?1").unwrap();
+            let match_already_exists = stmt.exists(rusqlite::params![single_match.id]).unwrap();
 
-            let response_text = resp.text().await.unwrap();
-
-            if response_text.contains("Error") {
-                // Err(response_text)
+            if match_already_exists {
+                db.execute(
+                    "UPDATE match set homeTeam = ?1, awayTeam = ?2, status = ?3, utcDate = ?4, score = ?5, \
+                    homeScore = ?6, awayScore = ?7 WHERE id = ?8",
+                    (
+                        to_string(&single_match.homeTeam).unwrap(),
+                        to_string(&single_match.awayTeam).unwrap(),
+                        &single_match.status,
+                        &single_match.utcDate,
+                        to_string(&single_match.score).unwrap(),
+                        &single_match.homeScore,
+                        &single_match.awayScore,
+                        &single_match.id,
+                    ),
+                ).unwrap();
             } else {
-                // Ok(response_text)
+                db.execute(
+                    "INSERT INTO match (id, homeTeam, awayTeam, status, utcDate, score, homeScore, awayScore) \
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    (
+                        &single_match.id,
+                        to_string(&single_match.homeTeam).unwrap(),
+                        to_string(&single_match.awayTeam).unwrap(),
+                        &single_match.status,
+                        &single_match.utcDate,
+                        to_string(&single_match.score).unwrap(),
+                        &single_match.homeScore,
+                        &single_match.awayScore,
+                    ),
+                ).unwrap();
             }
         }
+    }
+
+    async fn get_connection() -> Connection {
+        let db_path = match env::var("DB_PATH") {
+            Ok(v) => v.to_string(),
+            Err(_) => "Error loading env variable DB_PATH".to_string(),
+        };
+
+        Connection::open(db_path).unwrap()
     }
 }
