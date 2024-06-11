@@ -4,6 +4,7 @@ mod api;
 mod service;
 
 use std::env;
+use chrono::Datelike;
 use getopts::Options;
 use crate::api::match_client::{ApiResult, MatchClient};
 use crate::service::score_helper::ScoreHelper;
@@ -23,7 +24,7 @@ async fn main() {
     if flag_matches.opt_present("f") {
         api_result = MatchClient::get_matches(None).await;
     } else {
-        api_result = MatchClient::get_matches(Some(chrono::offset::Utc::now().to_string())).await;
+        api_result = MatchClient::get_matches(Some(chrono::offset::Utc::now().date_naive().to_string())).await;
     }
 
     if api_result.matches.is_some() {
