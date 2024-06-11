@@ -138,3 +138,103 @@ impl MatchClient {
         Connection::open(db_path).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn save_matches_to_sqlite_inserts_new_match() {
+        dotenv().ok();
+        let db_path = env::var("DB_PATH").unwrap();
+        let conn = Connection::open(&db_path).unwrap();
+
+        let mut matches = vec![
+            Match {
+                id: 11111,
+                utcDate: "2022-01-01".to_string(),
+                homeTeam: Team {
+                    id: None,
+                    name: None,
+                    shortName: None,
+                    tla: None,
+                    flag: None,
+                },
+                awayTeam: Team {
+                    id: None,
+                    name: None,
+                    shortName: None,
+                    tla: None,
+                    flag: None,
+                },
+                score: Score {
+                    winner: None,
+                    duration: "".to_string(),
+                    fullTime: ScoreDetail { home: None, away: None },
+                    halfTime: ScoreDetail { home: None, away: None },
+                },
+                status: "SCHEDULED".to_string(),
+                homeScore: Some(0),
+                awayScore: Some(0),
+            },
+        ];
+
+        MatchClient::save_matches_to_sqlite(&mut matches).await;
+
+        let mut stmt = conn.prepare("SELECT * FROM match WHERE id = 11111").unwrap();
+        let match_exists = stmt.exists(()).unwrap();
+
+        conn.execute("DELETE FROM match WHERE id = 11111", ()).unwrap();
+
+        assert!(match_exists);
+    }
+
+    #[tokio::test]
+    async fn save_matches_to_sqlite_updates_existing_match() {
+        dotenv().ok();
+        let db_path = env::var("DB_PATH").unwrap();
+        let conn = Connection::open(&db_path).unwrap();
+
+        let mut matches = vec![
+            Match {
+                id: 11111,
+                utcDate: "2022-01-01".to_string(),
+                homeTeam: Team {
+                    id: None,
+                    name: None,
+                    shortName: None,
+                    tla: None,
+                    flag: None,
+                },
+                awayTeam: Team {
+                    id: None,
+                    name: None,
+                    shortName: None,
+                    tla: None,
+                    flag: None,
+                },
+                score: Score {
+                    winner: None,
+                    duration: "".to_string(),
+                    fullTime: ScoreDetail { home: None, away: None },
+                    halfTime: ScoreDetail { home: None, away: None },
+                },
+                status: "SCHEDULED".to_string(),
+                homeScore: Some(0),
+                awayScore: Some(0),
+            },
+        ];
+
+        MatchClient::save_matches_to_sqlite(&mut matches).await;
+
+        matches[0].status = "FINISHED".to_string();
+        MatchClient::save_matches_to_sqlite(&mut matches).await;
+
+        let mut stmt = conn.prepare("SELECT status FROM match WHERE id = 11111").unwrap();
+        let status: String = stmt.query_row((), |row| row.get(0)).unwrap();
+
+        conn.execute("DELETE FROM match WHERE id = 11111", ()).unwrap();
+
+        assert_eq!(status, "FINISHED");
+    }
+}

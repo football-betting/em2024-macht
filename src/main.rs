@@ -4,7 +4,6 @@ mod api;
 mod service;
 
 use std::env;
-use chrono::Datelike;
 use getopts::Options;
 use crate::api::match_client::{ApiResult, MatchClient};
 use crate::service::score_helper::ScoreHelper;
