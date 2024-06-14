@@ -1,4 +1,5 @@
 use std::env;
+use chrono::{DateTime, TimeZone, Utc};
 use dotenv::dotenv;
 use rusqlite::Connection;
 use serde_derive::{Deserialize, Serialize};
@@ -95,6 +96,9 @@ impl MatchClient {
             let mut stmt = db.prepare("SELECT * FROM match WHERE id = ?1").unwrap();
             let match_already_exists = stmt.exists(rusqlite::params![single_match.id]).unwrap();
 
+            let datetime = DateTime::parse_from_rfc3339(&single_match.utcDate).unwrap();
+            let timestamp = datetime.timestamp();
+
             if match_already_exists {
                 db.execute(
                     "UPDATE match set homeTeam = ?1, awayTeam = ?2, status = ?3, utcDate = ?4, score = ?5, \
@@ -103,7 +107,7 @@ impl MatchClient {
                         to_string(&single_match.homeTeam).unwrap(),
                         to_string(&single_match.awayTeam).unwrap(),
                         &single_match.status,
-                        &single_match.utcDate,
+                        timestamp,
                         to_string(&single_match.score).unwrap(),
                         &single_match.homeScore,
                         &single_match.awayScore,
@@ -119,7 +123,7 @@ impl MatchClient {
                         to_string(&single_match.homeTeam).unwrap(),
                         to_string(&single_match.awayTeam).unwrap(),
                         &single_match.status,
-                        &single_match.utcDate,
+                        timestamp,
                         to_string(&single_match.score).unwrap(),
                         &single_match.homeScore,
                         &single_match.awayScore,
