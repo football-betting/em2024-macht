@@ -47,6 +47,7 @@ pub struct Score {
     pub duration: String,
     pub fullTime: ScoreDetail,
     pub halfTime: ScoreDetail,
+    pub regularTime: Option<ScoreDetail>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
